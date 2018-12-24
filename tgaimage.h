@@ -2,6 +2,7 @@
 #define __IMAGE_H__
 
 #include <fstream>
+#include "geometry.h"
 
 #pragma pack(push,1)
 struct TGA_Header {
@@ -85,6 +86,13 @@ public:
 	TGAColor get(int x, int y);
 	bool set(int x, int y, TGAColor c);
 	void line(int x0, int y0, int x1, int y1, TGAColor c);
+	void line(Vec2i v0, Vec2i v1, TGAColor c);
+	void rect(int x0, int y0, int x1, int y1, TGAColor c);
+	void rect(Vec2i v0, Vec2i v1, TGAColor c);
+	void rectFill(int x0, int y0, int x1, int y1, TGAColor c);
+	void rectFill(Vec2i v0, Vec2i v1, TGAColor c);
+	void tri(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c);
+	void triFill(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c);
 	~TGAImage();
 	TGAImage & operator =(const TGAImage &img);
 	int get_width();

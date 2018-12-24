@@ -272,29 +272,12 @@ bool TGAImage::set(int x, int y, TGAColor c) {
  * @param y1 the 2nd point's y coordinate
  * @param c  the color of the line
  */
-void TGAImage::line(int x0, int y0, int x1, int y1, TGAColor c) {
-	// We will draw a line by scanning from left to right if the slope is less than or equal to 1,
-	// and scanning from top to bottom if the slope is greater than 1
-
-	// Check whether the slope is greater than 1
-	bool steepSlope = std::abs(y1 - y0) > std::abs(x1 - x0);
-	
-	// Scan from top to bottom
-	if (steepSlope) {
-		std::swap(x0, y0);
-		std::swap(x1, y1);
-	}
-	
-	// Make sure point 0 is on the left and point 1 is on the right
-	if (x0 > x1) {
-		std::swap(x0, x1);
-		std::swap(y0, y1);
-	}
-
+void TGAImage::line(int x0, int y0, int x1, int y1, TGAColor c) {	
 	// Ensure that the given points are within the bounds of the image
-	if ((x0 > get_width()) ||
-		(x1 < 0) ||
+	if (
+		(x0 < 0 && x1 < 0) ||
 		(y0 < 0 && y1 < 0) ||
+		(x0 > get_width()  && x1 > get_width()) ||
 		(y0 > get_height() && y1 > get_height())) {
 		
 		return;
@@ -304,9 +287,15 @@ void TGAImage::line(int x0, int y0, int x1, int y1, TGAColor c) {
 	if (x0 < 0) {
 		y0 = y0 - (y1 - y0) / (float) (x1 - x0) * x0;
 		x0 = 0;
+	} else if (x0 > get_width()) {
+		y0 = y0 + (y1 - y0) / (float) (x1 - x0) * (get_width() - x0);
+		x0 = get_width();
 	}
 
-	if (x1 > get_width()) {
+	if (x1 < 0) {
+		y1 = y1 - (y1 - y0) / (float) (x1 - x0) * x1;
+		x1 = 0;
+	} else if (x1 > get_width()) {
 		y1 = y1 + (y1 - y0) / (float) (x1 - x0) * (get_width() - x1);
 		x1 = get_width();
 	}
@@ -325,6 +314,24 @@ void TGAImage::line(int x0, int y0, int x1, int y1, TGAColor c) {
 	} else if (y1 > get_height()) {
 		x1 = x1 + (x1 - x0) / (float) (y1 - y0) * (get_height() - y1);
 		y1 = get_height();
+	}
+	
+	// We will draw a line by scanning from left to right if the slope is less than or equal to 1,
+	// and scanning from top to bottom if the slope is greater than 1
+
+	// Check whether the slope is greater than 1
+	bool steepSlope = std::abs(y1 - y0) > std::abs(x1 - x0);
+	
+	// Scan from top to bottom
+	if (steepSlope) {
+		std::swap(x0, y0);
+		std::swap(x1, y1);
+	}
+	
+	// Make sure point 0 is on the left and point 1 is on the right
+	if (x0 > x1) {
+		std::swap(x0, x1);
+		std::swap(y0, y1);
 	}
 
 	// The current y position
@@ -350,6 +357,91 @@ void TGAImage::line(int x0, int y0, int x1, int y1, TGAColor c) {
 			y += (y0 < y1) ? (1) : (-1);
 			error2 -= 2 * run;
 		}
+	}
+}
+
+void TGAImage::line(Vec2i v0, Vec2i v1, TGAColor c) {
+	line(v0.x, v0.y, v1.x, v1.y, c);
+}
+
+/**
+ * Draw the axis-aligned rectangle defined by two points
+ *
+ * @param x0 the 1st point's x coordinate
+ * @param y0 the 1st point's y coordinate
+ * @param x1 the 2nd point's x coordinate
+ * @param y1 the 2nd point's y coordinate
+ * @param c  the color of the rectangle
+ */
+void TGAImage::rect(int x0, int y0, int x1, int y1, TGAColor c) {
+	line(x0, y0, x0, y1, c);
+	line(x0, y1, x1, y1, c);
+	line(x1, y1, x1, y0, c);
+	line(x1, y0, x0, y0, c);	
+}
+
+void TGAImage::rect(Vec2i v0, Vec2i v1, TGAColor c) {
+	rect(v0.x, v0.y, v1.x, v1.y, c);
+}
+
+/**
+ * Fill the axis-aligned rectangle defined by two points
+ *
+ * @param x0 the 1st point's x coordinate
+ * @param y0 the 1st point's y coordinate
+ * @param x1 the 2nd point's x coordinate
+ * @param y1 the 2nd point's y coordinate
+ * @param c  the color of the rectangle
+ */
+void TGAImage::rectFill(int x0, int y0, int x1, int y1, TGAColor c) {
+	// Make sure point 0 is to the left of point 1
+	if (x1 < x0) {
+		std::swap(x0, x1);
+	}
+
+	// Make sure point 0 is above point 1
+	if (y1 < y0) {
+		std::swap(y0, y1);
+	}
+	
+	// Ensure that the points are within the bounds of the image
+	if (x1 < 0 || x0 > get_width() || y1 < 0 || y0 > get_height()) {
+		return;
+	}
+	
+	// Fill the rectangle
+	for (int x = x0; x <= x1; x++) {
+		for (int y = y0; y <= y1; y++) {
+			set(x, y, c);
+		}
+	}
+}
+
+void TGAImage::rectFill(Vec2i v0, Vec2i v1, TGAColor c) {
+	rectFill(v0.x, v0.y, v1.x, v1.y, c);
+}
+
+void TGAImage::tri(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c) {
+	line(v0, v1, c);
+	line(v1, v2, c);
+	line(v2, v0, c);
+}
+
+/**
+ * Fill the triangle defined by three points
+ */
+void TGAImage::triFill(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c) {
+	// Sort the vertices by height (bubblesort)
+	if (v0.y > v1.y) std::swap(v0, v1);
+	if (v1.y > v2.y) std::swap(v1, v2);
+	if (v0.y > v1.y) std::swap(v0, v1);
+
+	int totalHeight = v2.y - v0.y;
+	int i;
+
+	// Draw the first segment
+	for (i = 0; i < v1.y; i++) {
+		int x0 = v0.x + i * () / (v1.y - v0.y)	
 	}
 }
 

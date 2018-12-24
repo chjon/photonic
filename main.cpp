@@ -1,21 +1,43 @@
+#include <vector>
+#include <cmath>
 #include "tgaimage.h"
+#include "model.h"
+#include "geometry.h"
 
 const TGAColor white = TGAColor(255, 255, 255, 255);
 const TGAColor red   = TGAColor(255,   0,   0, 255);
+const TGAColor green = TGAColor(  0, 255,   0, 255);
+const TGAColor blue  = TGAColor(  0,   0, 255, 255);
 
-const int WIDTH  = 160;
-const int HEIGHT = 90;
+const int WIDTH  = 800;
+const int HEIGHT = 800;
+
+Model* model = nullptr;
 
 int main(int argc, char** argv) {
+	if (2==argc) {
+		model = new Model(argv[1]);
+	} else {
+		model = new Model("obj/african_head.obj");
+	}
+	
 	TGAImage image(WIDTH, HEIGHT, TGAImage::RGB);
-	image.set(0, 0, TGAColor(255, 255, 255, 255));
-	//image.line(0, 0, WIDTH, HEIGHT, white);
-	//image.line(0, HEIGHT, WIDTH, 0, white);
-	//image.line(WIDTH / 2, HEIGHT, 0, 0, white);
-	//image.line(0, 0, WIDTH, 0, white);
-	//image.line(0, 0, 0, HEIGHT, white);
-	image.line(-WIDTH, -2 * HEIGHT, 3 * WIDTH, 5* HEIGHT, white);
-	image.line(3 * WIDTH, 3 * HEIGHT, -2 * WIDTH, -HEIGHT, white);
+	
+	for (int i=0; i<model->nfaces(); i++) {
+		std::vector<int> face = model->face(i);
+        	for (int j=0; j<3; j++) {
+			Vec3f v0 = model->vert(face[j]);
+            		Vec3f v1 = model->vert(face[(j+1)%3]);
+            		int x0 = (v0.x+1.)*WIDTH/2.;
+            		int y0 = (v0.y+1.)*HEIGHT/2.;
+            		int x1 = (v1.x+1.)*WIDTH/2.;
+            		int y1 = (v1.y+1.)*HEIGHT/2.;
+            		image.line(x0, y0, x1, y1, white);
+        	}
+    	}
+
+	image.flip_vertically();
 	image.write_tga_file("output.tga");
+	delete model;
 	return 0;
 }
