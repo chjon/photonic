@@ -9,8 +9,8 @@ const TGAColor red   = TGAColor(255,   0,   0, 255);
 const TGAColor green = TGAColor(  0, 255,   0, 255);
 const TGAColor blue  = TGAColor(  0,   0, 255, 255);
 
-const int WIDTH  = 800;
-const int HEIGHT = 800;
+const int WIDTH  = 200;
+const int HEIGHT = 200;
 
 Model* model = nullptr;
 
@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
 	}
 	
 	TGAImage image(WIDTH, HEIGHT, TGAImage::RGB);
-	
+	/*	
 	for (int i=0; i<model->nfaces(); i++) {
 		std::vector<int> face = model->face(i);
         	for (int j=0; j<3; j++) {
@@ -35,8 +35,13 @@ int main(int argc, char** argv) {
             		image.line(x0, y0, x1, y1, white);
         	}
     	}
+	*/	
 
-	image.flip_vertically();
+	Vec2i t[3] = {Vec2i(10, 10), Vec2i(100,30), Vec2i(190, 160)};
+
+	image.triFill(t[0], t[1], t[2], white);
+
+	//image.flip_vertically();
 	image.write_tga_file("output.tga");
 	delete model;
 	return 0;

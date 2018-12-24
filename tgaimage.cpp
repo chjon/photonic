@@ -429,19 +429,46 @@ void TGAImage::tri(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c) {
 
 /**
  * Fill the triangle defined by three points
+ *
+ * @param v0 the coordinates of the 1st vertex
+ * @param v1 the coordinates of the 2nd vertex
+ * @param v2 the coordinates of the 3rd vertex
  */
 void TGAImage::triFill(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c) {
 	// Sort the vertices by height (bubblesort)
 	if (v0.y > v1.y) std::swap(v0, v1);
 	if (v1.y > v2.y) std::swap(v1, v2);
 	if (v0.y > v1.y) std::swap(v0, v1);
+	
+	// Calculate inverse slopes for finding the boundaries between segments
+	float invSlope0 = (v2.x - v0.x) / (float) (v2.y - v0.y);
+	float invSlope1 = (v1.x - v0.x) / (float) (v1.y - v0.y);
+	float invSlope2 = (v2.x - v1.x) / (float) (v2.y - v1.y);
 
-	int totalHeight = v2.y - v0.y;
-	int i;
+	// Draw the triangle
+	for (int y = std::max(0, v0.y); y < std::min(get_height() - 1, v2.y); y++) {
+		// Find the boundary for the segment between v0 and v2
+		int x0 = v0.x + invSlope0 * (y - v0.y);
+		int x1;
+		
+		// Find the boundary for the segment between v0 and v1
+		if (y < v1.y) {
+			x1 = v0.x + invSlope1 * (y - v0.y);
+		
+		// Find the boundary for the segment between v1 and v2
+		} else {
+			x1 = v1.x + invSlope2 * (y - v1.y);
+		}
 
-	// Draw the first segment
-	for (i = 0; i < v1.y; i++) {
-		int x0 = v0.x + i * () / (v1.y - v0.y)	
+		// Ensure that the 0 boundary is to the left of the 1 boundary
+		if (x1 < x0) {
+			std::swap(x0, x1);
+		}
+
+		// Fill the row
+		for (int x = std::max(0, x0); x <= std::min(get_width() - 1, x1); x++) {
+			set(x, y, c);
+		}
 	}
 }
 
