@@ -277,7 +277,7 @@ void TGAImage::line(int x0, int y0, int x1, int y1, TGAColor c) {
 	// and scanning from top to bottom if the slope is greater than 1
 
 	// Check whether the slope is greater than 1
-	bool steepSlope = (y1 - y0) > (x1 - x0);
+	bool steepSlope = std::abs(y1 - y0) > std::abs(x1 - x0);
 	
 	// Scan from top to bottom
 	if (steepSlope) {
@@ -291,15 +291,64 @@ void TGAImage::line(int x0, int y0, int x1, int y1, TGAColor c) {
 		std::swap(y0, y1);
 	}
 
+	// Ensure that the given points are within the bounds of the image
+	if ((x0 > get_width()) ||
+		(x1 < 0) ||
+		(y0 < 0 && y1 < 0) ||
+		(y0 > get_height() && y1 > get_height())) {
+		
+		return;
+	}
+	
+	// Map points outside the boundaries into the image
+	if (x0 < 0) {
+		y0 = y0 - (y1 - y0) / (float) (x1 - x0) * x0;
+		x0 = 0;
+	}
+
+	if (x1 > get_width()) {
+		y1 = y1 + (y1 - y0) / (float) (x1 - x0) * (get_width() - x1);
+		x1 = get_width();
+	}
+
+	if (y0 < 0) {
+		x0 = x0 - (x1 - x0) / (float) (y1 - y0) * y0;
+		y0 = 0;
+	} else if (y0 > get_height()) {
+		x0 = x0 + (x1 - x0) / (float) (y1 - y0) * (get_height() - y0);
+		y0 = get_height();
+	}
+
+	if (y1 < 0) {
+		x1 = x1 - (x1 - x0) / (float) (y1 - y0) * y1;
+		y1 = 0;
+	} else if (y1 > get_height()) {
+		x1 = x1 + (x1 - x0) / (float) (y1 - y0) * (get_height() - y1);
+		y1 = get_height();
+	}
+
+	// The current y position
+	int y = y0;
+
+	// Use the slope to increment the y position
+	int rise2  = 2 * std::abs(y1 - y0);
+	int run    = x1 - x0;
+	int error2 = 0;
+
 	// Draw the line
 	for (int x = x0; x <= x1; x++) {
-		float percent = (float) (x - x0) / (x1 - x0);
-		int y = y0 + (y1 - y0) * percent;
-
 		if (steepSlope) {
 			set(y, x, c);
 		} else {
 			set(x, y, c);
+		}
+
+		// Ensure that the current y position is within 0.5 pixels of the optimal position
+		error2 += rise2;
+
+		if (error2 > run) {
+			y += (y0 < y1) ? (1) : (-1);
+			error2 -= 2 * run;
 		}
 	}
 }
