@@ -58,15 +58,28 @@ struct TGAColor {
 		}
 		return *this;
 	}
+
+	TGAColor & operator* (const float scalingFactor) {
+		r *= scalingFactor;
+		g *= scalingFactor;
+		b *= scalingFactor;
+
+		return *this;
+	}
 };
 
 
 class TGAImage {
+private:
+	void initializeZBuffer();
+
 protected:
 	unsigned char* data;
 	int width;
 	int height;
 	int bytespp;
+
+	float** zbuffer;
 
 	bool   load_rle_data(std::ifstream &in);
 	bool unload_rle_data(std::ofstream &out);	
@@ -94,8 +107,11 @@ public:
 	void rectFill(Vec2i v0, Vec2i v1, TGAColor c);
 	void tri(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c);
 	void triFillSweep(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c);
+	void triFillSweep(Vec3f v0, Vec3f v1, Vec3f v2, TGAColor c);
+	void triFillSweep(Vec3f v0, Vec3f v1, Vec3f v2, TGAImage t);
 	void triFillBound(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c);
-	void triFill(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c);
+	void triFillBound(Vec3f v0, Vec3f v1, Vec3f v2, TGAColor c);
+	void triFill(Vec3f* v, Vec2i* u, TGAImage& texture, float intensity);
 	~TGAImage();
 	TGAImage & operator =(const TGAImage &img);
 	int get_width();

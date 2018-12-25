@@ -12,6 +12,8 @@ TGAImage::TGAImage(int w, int h, int bpp) : data(NULL), width(w), height(h), byt
 	unsigned long nbytes = width*height*bytespp;
 	data = new unsigned char[nbytes];
 	memset(data, 0, nbytes);
+
+	initializeZBuffer();
 }
 
 TGAImage::TGAImage(const TGAImage &img) {
@@ -21,6 +23,20 @@ TGAImage::TGAImage(const TGAImage &img) {
 	unsigned long nbytes = width*height*bytespp;
 	data = new unsigned char[nbytes];
 	memcpy(data, img.data, nbytes);
+
+	initializeZBuffer();
+}
+
+void TGAImage::initializeZBuffer() {
+	zbuffer = new float*[width];
+	
+	for (int i = 0; i < width; i++) {
+		zbuffer[i] = new float[height];
+
+		for (int j = 0; j < height; j++) {
+			zbuffer[i][j] = -1.0 / 0.0;
+		}
+	}
 }
 
 TGAImage::~TGAImage() {
@@ -255,6 +271,15 @@ TGAColor TGAImage::get(int x, int y) {
 	return TGAColor(data+(x+y*width)*bytespp, bytespp);
 }
 
+/**
+ * Set the value of a pixel in the image
+ *
+ * @param x the x coordinate of the pixel to change
+ * @param y the y coordinate of the pixel to change
+ * @param c the color of the pixel
+ *
+ * @return false if the given coordinates are out of bounds; true otherwise
+ */
 bool TGAImage::set(int x, int y, TGAColor c) {
 	if (!data || x<0 || y<0 || x>=width || y>=height) {
 		return false;
@@ -360,6 +385,13 @@ void TGAImage::line(int x0, int y0, int x1, int y1, TGAColor c) {
 	}
 }
 
+/**
+ * Draw a line from one point to another
+ *
+ * @param v0 the 1st point
+ * @param v1 the 2nd point
+ * @param c  the color of the line
+ */
 void TGAImage::line(Vec2i v0, Vec2i v1, TGAColor c) {
 	line(v0.x, v0.y, v1.x, v1.y, c);
 }
@@ -380,6 +412,13 @@ void TGAImage::rect(int x0, int y0, int x1, int y1, TGAColor c) {
 	line(x1, y0, x0, y0, c);	
 }
 
+/**
+ * Draw the axis-aligned rectangle defined by two points
+ *
+ * @param v0 the 1st point
+ * @param v1 the 2nd point
+ * @param c  the color of the rectangle
+ */
 void TGAImage::rect(Vec2i v0, Vec2i v1, TGAColor c) {
 	rect(v0.x, v0.y, v1.x, v1.y, c);
 }
@@ -417,10 +456,25 @@ void TGAImage::rectFill(int x0, int y0, int x1, int y1, TGAColor c) {
 	}
 }
 
+/**
+ * Fill the axis-aligned rectangle defined by two points
+ *
+ * @param v0 the 1st point
+ * @param v1 the 2nd point
+ * @param c  the color of the rectangle
+ */
 void TGAImage::rectFill(Vec2i v0, Vec2i v1, TGAColor c) {
 	rectFill(v0.x, v0.y, v1.x, v1.y, c);
 }
 
+/**
+ * Draw the triangle defined by three points
+ *
+ * @param v0 the 1st point
+ * @param v1 the 2nd point
+ * @param v2 the 3rd point
+ * @param c  the color of the rectangle
+ */
 void TGAImage::tri(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c) {
 	line(v0, v1, c);
 	line(v1, v2, c);
@@ -473,7 +527,127 @@ void TGAImage::triFillSweep(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c) {
 }
 
 /**
+ * Fill the triangle defined by three points using line sweeping, accounting for the z-axis
+ *
+ * @param v0 the coordinates of the 1st vertex
+ * @param v1 the coordinates of the 2nd vertex
+ * @param v2 the coordinates of the 3rd vertex
+ */
+void TGAImage::triFillSweep(Vec3f v0, Vec3f v1, Vec3f v2, TGAColor c) {
+	// Sort the vertices by height (bubblesort)
+	if (v0.y > v1.y) std::swap(v0, v1);
+	if (v1.y > v2.y) std::swap(v1, v2);
+	if (v0.y > v1.y) std::swap(v0, v1);
+
+	// Calculate inverse slopes for finding the boundaries between segments
+	float invSlope0 = (v2.x - v0.x) / (float) (v2.y - v0.y);
+	float invSlope1 = (v1.x - v0.x) / (float) (v1.y - v0.y);
+	float invSlope2 = (v2.x - v1.x) / (float) (v2.y - v1.y);
+
+	// Draw the triangle
+	for (int y = std::max(0.f, v0.y); y < std::min(get_height() - 1.f, v2.y); y++) {
+		// Find the boundary for the segment between v0 and v2
+		int x0 = v0.x + invSlope0 * (y - v0.y);
+		int x1;
+
+		// Find the boundary for the segment between v0 and v1
+		if (y < v1.y) {
+			x1 = v0.x + invSlope1 * (y - v0.y);
+
+			// Find the boundary for the segment between v1 and v2
+		} else {
+			x1 = v1.x + invSlope2 * (y - v1.y);
+		}
+
+		// Ensure that the 0 boundary is to the left of the 1 boundary
+		if (x1 < x0) {
+			std::swap(x0, x1);
+		}
+
+		// Fill the row
+		for (int x = std::max(0, x0); x <= std::min(get_width() - 1, x1); x++) {
+			Vec3f bc = geometry::barycenter(v0, v1, v2, Vec2i(x, y));
+
+			// Check if the pixel is in the triangle
+			if (bc.x < 0 || bc.y < 0 || bc.z < 0) continue;
+
+			float z = v0.z * bc.x + v1.z * bc.y + v2.z * bc.z;
+
+			// Check the z-buffer to see whether the pixel should be drawn
+			if (zbuffer[x][y] < z) {
+				zbuffer[x][y] = z;
+				set(x, y, c);
+			}
+		}
+	}
+}
+
+/**
+ * Fill the triangle defined by three points using line sweeping, accounting for the z-axis
+ *
+ * @param v0 the coordinates of the 1st vertex
+ * @param v1 the coordinates of the 2nd vertex
+ * @param v2 the coordinates of the 3rd vertex
+ * @param t  the texture image for the model
+ */
+void TGAImage::triFillSweep(Vec3f v0, Vec3f v1, Vec3f v2, TGAImage t) {
+	// Sort the vertices by height (bubblesort)
+	if (v0.y > v1.y) std::swap(v0, v1);
+	if (v1.y > v2.y) std::swap(v1, v2);
+	if (v0.y > v1.y) std::swap(v0, v1);
+
+	// Calculate inverse slopes for finding the boundaries between segments
+	float invSlope0 = (v2.x - v0.x) / (float) (v2.y - v0.y);
+	float invSlope1 = (v1.x - v0.x) / (float) (v1.y - v0.y);
+	float invSlope2 = (v2.x - v1.x) / (float) (v2.y - v1.y);
+
+	// Draw the triangle
+	for (int y = std::max(0.f, v0.y); y < std::min(get_height() - 1.f, v2.y); y++) {
+		// Find the boundary for the segment between v0 and v2
+		int x0 = v0.x + invSlope0 * (y - v0.y);
+		int x1;
+
+		// Find the boundary for the segment between v0 and v1
+		if (y < v1.y) {
+			x1 = v0.x + invSlope1 * (y - v0.y);
+
+			// Find the boundary for the segment between v1 and v2
+		} else {
+			x1 = v1.x + invSlope2 * (y - v1.y);
+		}
+
+		// Ensure that the 0 boundary is to the left of the 1 boundary
+		if (x1 < x0) {
+			std::swap(x0, x1);
+		}
+
+		// Fill the row
+		for (int x = std::max(0, x0); x <= std::min(get_width() - 1, x1); x++) {
+			Vec3f bc = geometry::barycenter(v0, v1, v2, Vec2i(x, y));
+
+			// Check if the pixel is in the triangle
+			if (bc.x < 0 || bc.y < 0 || bc.z < 0) continue;
+
+			float z = v0.z * bc.x + v1.z * bc.y + v2.z * bc.z;
+
+			// Check the z-buffer to see whether the pixel should be drawn
+			if (zbuffer[x][y] < z) {
+				zbuffer[x][y] = z;
+
+				// Fetch the color of the pixel from the texture
+				TGAColor c = t.get(x, y);
+				set(x, y, c);
+			}
+		}
+	}
+}
+
+/**
  * Fill the triangle defined by three points using bounding boxes
+ *
+ * @param v0 the coordinates of the 1st vertex
+ * @param v1 the coordinates of the 2nd vertex
+ * @param v2 the coordinates of the 3rd vertex
  */
 void TGAImage::triFillBound(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c) {
 	// Find the bounding box for the triangle
@@ -488,15 +662,108 @@ void TGAImage::triFillBound(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c) {
 		for (p.y = y0; p.y <= y1; p.y++) {
 			Vec3f bc = geometry::barycenter(v0, v1, v2, p);
 
-			if (bc.x >= 0 && bc.y >=0 && bc.z >= 0) {
+			// Check if the pixel is in the triangle
+			if (bc.x < 0 || bc.y < 0 || bc.z < 0) continue;
+			
+			set(p.x, p.y, c);
+		}
+	}	
+}
+
+/**
+ * Fill the triangle defined by three points using bounding boxes, accounting for the z-axis
+ *
+ * @param v0 the coordinates of the 1st vertex
+ * @param v1 the coordinates of the 2nd vertex
+ * @param v2 the coordinates of the 3rd vertex
+ */
+void TGAImage::triFillBound(Vec3f v0, Vec3f v1, Vec3f v2, TGAColor c) {
+	// Find the bounding box for the triangle
+	int x0 = std::max(std::min(std::min(v0.x, v1.x), v2.x), 0.f);
+	int y0 = std::max(std::min(std::min(v0.y, v1.y), v2.y), 0.f);	
+	int x1 = std::min(std::max(std::max(v0.x, v1.x), v2.x), get_width()  - 1.f);
+	int y1 = std::max(std::min(std::min(v0.y, v1.y), v2.y), get_height() - 1.f);
+
+	// Fill the triangle based on the barycentric coordinates of each pixel
+	Vec2i p;
+	for (p.x = x0; p.x <= x1; p.x++) {
+		for (p.y = y0; p.y <= y1; p.y++) {
+			Vec3f bc = geometry::barycenter(v0, v1, v2, p);
+
+			// Check if the pixel is in the triangle
+			if (bc.x < 0 || bc.y < 0 || bc.z < 0) continue;
+
+			float z = v0.z * bc.x + v1.z * bc.y + v2.z * bc.z;
+			
+			// Check the z-buffer to see whether the pixel should be drawn
+			if (zbuffer[p.x][p.y] < z) {
+				zbuffer[p.x][p.y] = z;
 				set(p.x, p.y, c);
 			}
 		}
 	}	
 }
 
-void TGAImage::triFill(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c) {
-	triFillSweep(v0, v1, v2, c);
+/**
+ * Fill the triangle defined by three points; defaults to line sweeping
+ *
+ * @param v0 the coordinates of the 1st vertex
+ * @param v1 the coordinates of the 2nd vertex
+ * @param v2 the coordinates of the 3rd vertex
+ */
+void TGAImage::triFill(Vec3f* v, Vec2i* u, TGAImage& texture, float intensity) {
+	// Sort the vertices by height (bubblesort)
+	if (v[0].y > v[1].y) {
+		std::swap(v[0], v[1]);
+		std::swap(u[0], u[1]);
+	}
+
+	if (v[1].y > v[2].y) {
+		std::swap(v[1], v[2]);
+		std::swap(u[1], u[2]);
+	}
+
+	if (v[0].y > v[1].y) {
+		std::swap(v[0], v[1]);
+		std::swap(u[0], u[1]);
+	}
+
+	int total_height = v[2].y-v[0].y;
+	for (int i=0; i<total_height; i++) {
+		bool second_half = i>v[1].y-v[0].y || v[1].y==v[0].y;
+		int segment_height = second_half ? v[2].y-v[1].y : v[1].y-v[0].y;
+		float alpha = (float)i/total_height;
+		float beta  = (float)(i-(second_half ? v[1].y-v[0].y : 0))/segment_height; // be careful: with above conditions no division by zero here
+
+		Vec3f A   = v[0] + (v[2] - v[0]) * alpha;
+		Vec2i uA = u[0] + (u[2] - u[0]) * alpha;
+
+		Vec3f B;
+		Vec2i uB;
+
+		if (!second_half) {
+			B  = v[0] + (v[1] - v[0]) * beta;
+			uB = u[0] + (u[1] - u[0]) * beta;
+		} else {
+			B  = v[1] + (v[2] - v[1]) * beta;
+			uB = u[1] + (u[2] - u[1]) * beta;
+		}
+
+		if (A.x > B.x) {
+			std::swap(A, B); std::swap(uA, uB);
+		}
+
+		for (int j=A.x; j<=B.x; j++) {
+			float phi = B.x==A.x ? 1. : (float)(j-A.x)/(float)(B.x-A.x);
+			Vec3f   P = Vec3f(A) + Vec3f(B - A) * phi;
+			Vec2i uvP = uA + (uB - uA) * phi;
+			if (zbuffer[(int) P.x][(int) P.y]<P.z) {
+				zbuffer[(int) P.x][(int) P.y] = P.z;
+				TGAColor color = texture.get(uvP.x, uvP.y);
+				set(P.x, P.y, color * intensity);
+			}
+		}
+	}
 }
 
 int TGAImage::get_bytespp() {
