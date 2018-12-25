@@ -34,6 +34,7 @@ template <class t> struct Vec3 {
 	inline t       operator *(const Vec3<t> &v) const { return x*v.x + y*v.y + z*v.z; }
 	float norm () const { return std::sqrt(x*x+y*y+z*z); }
 	Vec3<t> & normalize(t l=1) { *this = (*this)*(l/norm()); return *this; }
+	template <class > Vec3<t> cross (Vec3<t> u);
 	template <class > friend std::ostream& operator<<(std::ostream& s, Vec3<t>& v);
 };
 
@@ -51,5 +52,29 @@ template <class t> std::ostream& operator<<(std::ostream& s, Vec3<t>& v) {
 	s << "(" << v.x << ", " << v.y << ", " << v.z << ")\n";
 	return s;
 }
+
+template <class t> Vec3<t> cross (Vec3<t> u, Vec3<t> v) {
+	return Vec3<t>(
+		u.y * v.z - u.z * v.y,
+		u.z * v.x - u.x * v.z,
+		u.x * v.y - u.y * v.x
+	);
+}
+
+class geometry {
+public:
+	static inline Vec3f barycenter (const Vec2i v0, const Vec2i v1, const Vec2i v2, const Vec2i p) {
+		Vec3f u = cross(
+			Vec3f(v2.x - v0.x, v1.x - v0.x, v0.x - p.x),
+			Vec3f(v2.y - v0.y, v1.y - v0.y, v0.y - p.y)
+		);
+
+		if (std::abs(u.z) < 1) {
+			return Vec3f(-1, -1, -1);
+		}
+
+		return Vec3f(1.f - (u.x + u.y) / u.z, u.y / u.z, u.x / u.z);
+	}
+};
 
 #endif //__GEOMETRY_H__

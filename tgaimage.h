@@ -69,7 +69,8 @@ protected:
 	int bytespp;
 
 	bool   load_rle_data(std::ifstream &in);
-	bool unload_rle_data(std::ofstream &out);
+	bool unload_rle_data(std::ofstream &out);	
+
 public:
 	enum Format {
 		GRAYSCALE=1, RGB=3, RGBA=4
@@ -92,6 +93,8 @@ public:
 	void rectFill(int x0, int y0, int x1, int y1, TGAColor c);
 	void rectFill(Vec2i v0, Vec2i v1, TGAColor c);
 	void tri(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c);
+	void triFillSweep(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c);
+	void triFillBound(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c);
 	void triFill(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c);
 	~TGAImage();
 	TGAImage & operator =(const TGAImage &img);

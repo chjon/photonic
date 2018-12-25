@@ -11,7 +11,7 @@ OBJECTS := $(patsubst %.cpp,%.o,$(wildcard *.cpp))
 all: $(DESTDIR)$(TARGET)
 
 $(DESTDIR)$(TARGET): $(OBJECTS)
-	$(SYSCONF_LINK) -g -Wall $(LDFLAGS) -o $(DESTDIR)$(TARGET) $(OBJECTS) $(LIBS)
+	$(SYSCONF_LINK) -g -Wall -O3 $(LDFLAGS) -o $(DESTDIR)$(TARGET) $(OBJECTS) $(LIBS)
 
 $(OBJECTS): %.o: %.cpp
 	$(SYSCONF_LINK) -Wall $(CPPFLAGS) -c $(CFLAGS) $< -o $@

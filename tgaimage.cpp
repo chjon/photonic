@@ -428,13 +428,13 @@ void TGAImage::tri(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c) {
 }
 
 /**
- * Fill the triangle defined by three points
+ * Fill the triangle defined by three points using line sweeping
  *
  * @param v0 the coordinates of the 1st vertex
  * @param v1 the coordinates of the 2nd vertex
  * @param v2 the coordinates of the 3rd vertex
  */
-void TGAImage::triFill(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c) {
+void TGAImage::triFillSweep(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c) {
 	// Sort the vertices by height (bubblesort)
 	if (v0.y > v1.y) std::swap(v0, v1);
 	if (v1.y > v2.y) std::swap(v1, v2);
@@ -470,6 +470,33 @@ void TGAImage::triFill(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c) {
 			set(x, y, c);
 		}
 	}
+}
+
+/**
+ * Fill the triangle defined by three points using bounding boxes
+ */
+void TGAImage::triFillBound(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c) {
+	// Find the bounding box for the triangle
+	int x0 = std::max(std::min(std::min(v0.x, v1.x), v2.x), 0);
+	int y0 = std::max(std::min(std::min(v0.y, v1.y), v2.y), 0);	
+	int x1 = std::min(std::max(std::max(v0.x, v1.x), v2.x), get_width()  - 1);
+	int y1 = std::max(std::min(std::min(v0.y, v1.y), v2.y), get_height() - 1);
+
+	// Fill the triangle based on the barycentric coordinates of each pixel
+	Vec2i p;
+	for (p.x = x0; p.x <= x1; p.x++) {
+		for (p.y = y0; p.y <= y1; p.y++) {
+			Vec3f bc = geometry::barycenter(v0, v1, v2, p);
+
+			if (bc.x >= 0 && bc.y >=0 && bc.z >= 0) {
+				set(p.x, p.y, c);
+			}
+		}
+	}	
+}
+
+void TGAImage::triFill(Vec2i v0, Vec2i v1, Vec2i v2, TGAColor c) {
+	triFillSweep(v0, v1, v2, c);
 }
 
 int TGAImage::get_bytespp() {

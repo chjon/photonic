@@ -9,8 +9,8 @@ const TGAColor red   = TGAColor(255,   0,   0, 255);
 const TGAColor green = TGAColor(  0, 255,   0, 255);
 const TGAColor blue  = TGAColor(  0,   0, 255, 255);
 
-const int WIDTH  = 200;
-const int HEIGHT = 200;
+const int WIDTH  = 1600;
+const int HEIGHT = 1600;
 
 Model* model = nullptr;
 
@@ -22,26 +22,40 @@ int main(int argc, char** argv) {
 	}
 	
 	TGAImage image(WIDTH, HEIGHT, TGAImage::RGB);
-	/*	
-	for (int i=0; i<model->nfaces(); i++) {
-		std::vector<int> face = model->face(i);
-        	for (int j=0; j<3; j++) {
-			Vec3f v0 = model->vert(face[j]);
-            		Vec3f v1 = model->vert(face[(j+1)%3]);
-            		int x0 = (v0.x+1.)*WIDTH/2.;
-            		int y0 = (v0.y+1.)*HEIGHT/2.;
-            		int x1 = (v1.x+1.)*WIDTH/2.;
-            		int y1 = (v1.y+1.)*HEIGHT/2.;
-            		image.line(x0, y0, x1, y1, white);
-        	}
-    	}
-	*/	
+	
+	for (int i = 0; i < model->nfaces(); i++) { 
+		std::vector<int> face = model->face(i); 
+		Vec2i screenCoords[3]; 
+		Vec3f worldCoords[3]; 
+		
+		for (int j=0; j<3; j++) { 
+			Vec3f v = model->vert(face[j]); 
+			screenCoords[j] = Vec2i((v.x+1.)*WIDTH/2., (v.y+1.)*HEIGHT/2.); 
+			worldCoords[j]  = v; 
+		} 
+		
+		Vec3f n = (worldCoords[2]-worldCoords[0])^(worldCoords[1]-worldCoords[0]);
+		Vec3f lightDir(0, 0, -1);
+		
+		n.normalize();
+		
+		float intensity = n * lightDir; 
+		if (intensity > 0) { 
+			image.triFill(
+				screenCoords[0],
+				screenCoords[1],
+				screenCoords[2],
+				TGAColor(intensity * 255, intensity * 255, intensity * 255, 255)
+			);
+		} 
+	}
+		
 
-	Vec2i t[3] = {Vec2i(10, 10), Vec2i(100,30), Vec2i(190, 160)};
+	//Vec2i t[3] = {Vec2i(10, 10), Vec2i(100,30), Vec2i(190, 160)};
 
-	image.triFill(t[0], t[1], t[2], white);
+	//image.triFill(t[0], t[1], t[2], white);
 
-	//image.flip_vertically();
+	image.flip_vertically();
 	image.write_tga_file("output.tga");
 	delete model;
 	return 0;
